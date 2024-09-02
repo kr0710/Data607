@@ -1,0 +1,25 @@
+---
+title: "DATA607_Assignment_1"
+author: "Keith Rafferty"
+date: "2024-09-01"
+output:
+  html_document: default
+  pdf_document: default
+---
+## Overview
+538's Generic Ballot polling average ([link]('https://projects.fivethirtyeight.com/polls/generic-ballot/)) is a staple of its election year coverage and forecasting, although it is overshadowed in Presidential election years. The current average, built from the table shown below (note that the columns "election" and "cycle" have been omitted in this rendering), shows that the Democratic party holds a 2.3% advantage over their Republican counterparts.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library('RCurl')
+getdata <- getURL('https://raw.githubusercontent.com/kr0710/Data607/main/generic_ballot_averages.csv')
+df <- read.csv(text = getdata)[-c(6:7)]
+
+```
+## Recommendations
+It is perhaps less than ideal that the averages for the political parties are in separate rows for a given time point rather than the same row. Reformatting the table further so that the averages for each party are in the same row for each timepoint would be more suitable. Additionally, having the most recent and relevant averages at the top of the table rather than the bottom is a needed change.
+```{r echo = FALSE, results= 'asis'}
+library(knitr)
+kable(df)
+```
+
