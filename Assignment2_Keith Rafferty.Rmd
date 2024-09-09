@@ -1,0 +1,39 @@
+---
+title: "Assignment2_Keith Rafferty"
+author: "Keith Rafferty"
+date: "2024-09-08"
+output: html_document
+---
+## Using MySQL to Generate and Export the Data
+
+Within MySQL Workbench, create a schema titled "Movie_scores" or something similar. Import and run the movie_ratings.sql script, which will generate a csv file output. Note that you may need to alter the directory in line 18 for the ouput if you encounter a "--secure-priv-option" type error.
+
+## Setting up the dataframe from the csv file, then averaging the score for each movie
+In the markdown code below, the csv file is opened from the directory; once again, note that you may have to change the directory depending on where the output file from the sql script was saved. Column names are assigned, but the first column featuring the names of the people is dropped for ease of calculating the mean score of each movie. However, prior to that calculation, the the null values in the data frame are replaced with NA. The "cleaned" data is then used to calculate the mean score of each movie, which is then presented in table form. 
+
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+library(knitr)
+library(naniar)
+
+columns <- c(
+  'Person',
+  'Halloween_score',
+  'TheWitch_score',
+  'BramsDracula_score',
+  'ItFollows_score',
+  'Insidious_score',
+  'Conjuring_score')
+
+df <- read.csv('c:/data/movie_ratings.csv', header = FALSE, col.names = columns)[-c(1)]
+
+cleanDF <- df %>% replace_with_na_all(condition = ~.x == 0)
+
+moviemeans = data.frame(colMeans(cleanDF, na.rm = TRUE))
+
+colnames(moviemeans)[1] = 'Mean Score (1 - 5)'
+
+kable(moviemeans)
+
+```
+
