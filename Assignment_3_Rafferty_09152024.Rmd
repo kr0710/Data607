@@ -1,0 +1,92 @@
+---
+title: "DATA607_Assignment_3"
+author: "Keith Rafferty"
+date: "2024-09-15"
+output:
+  html_document: 
+    keep_md: true
+  pdf_document: default
+---
+## Question 1
+Using the 173 majors listed in fivethirtyeight.com’s College Majors dataset [https://fivethirtyeight.com/features/the-economic-guide-to-picking-a-college-major/], provide code that identifies the majors that contain either "DATA" or "STATISTICS".
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library('RCurl')
+library(stringr)
+
+data <- getURL(
+  'https://raw.githubusercontent.com/fivethirtyeight/data/master/college-majors/recent-grads.csv')
+majors <- pull(read.csv(text = data), Major)
+stat_majors <- str_subset(majors, "\\bSTATISTICS\\b")
+data_majors <- str_subset(majors, "\\bDATA\\b")
+combined_results <- c(stat_majors, data_majors)
+combined_results
+
+```
+## Question 2
+Transform the output data into a vector in alphabetical order.
+```{r echo = TRUE, results= 'asis'}
+library(knitr)
+pasted_text <- '[1] "bell pepper"  "bilberry"     "blackberry"   "blood orange"
+
+[5] "blueberry"    "cantaloupe"   "chili pepper" "cloudberry"  
+
+[9] "elderberry"   "lime"         "lychee"       "mulberry"    
+
+[13] "olive"        "salal berry"'
+
+
+extracted <- str_match_all(pasted_text, '(\\")([a-zA-Z]+\\s*[a-zA-Z]*)(\\")')
+
+matches = extracted[[1]]
+vector_match = c(matches[1:14, 3])
+vector_match
+
+
+
+```
+
+
+
+
+
+## Question 3
+
+(.)\1\1
+
+This pattern will not match anything since the pattern is not enclosed in parentheses. Even if parentheses were present, each \1 needs another backslash in front of it.
+
+"(.)(.)\\2\\1"
+
+This pattern will match any pattern in which the 1st character matches the last, and the 2nd character matches the 3rd.
+
+(..)\1
+
+This pattern will not match anything since it is missing parentheses and the \1 requires an additional backslash.
+
+"(.).\\1.\\1"
+
+This pattern will match any pattern of five characters in which the 3rd and last character is the same as the first.
+
+"(.)(.)(.).*\\3\\2\\1"
+
+This pattern will match any pattern of at least six characters lenght in which the 1st character == the last, 2nd character == 2nd to last character, and the 3rd character == the 3rd to last character.
+
+
+## Question 4
+Construct regular expressions to match words that:
+
+Start and end with the same character.
+
+"b(.).*\\1"
+
+Contain a repeated pair of letters (e.g. "church" contains "ch" repeated twice.)
+
+".*([a-zA-Z]{1}[a-zA-Z]{1}]).*\\1.*"
+
+Contain one letter repeated in at least three places (e.g. "eleven" contains three "e"s.)
+
+".*(.){1,3}.*\\1{1,2}.*\\1{1,2}.*"
+
