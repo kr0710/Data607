@@ -1,0 +1,168 @@
+---
+title: "Project_1 for DATA 607"
+author: "Keith Rafferty"
+date: "2024-09-23"
+output:
+  html_document: default
+  pdf_document: default
+---
+### Project 1 Objective:
+
+"In this project, you’re given a text file with chess tournament results where the information has some structure. Your job is to create an R Markdown file that generates a .CSV file (that could for example be imported into a SQL database) with the following information for all of the players:
+
+Player’s Name, Player’s State, Total Number of Points, Player’s Pre-Rating, and Average Pre Chess Rating of Opponents
+
+For the first player, the information would be:
+Gary Hua, ON, 6.0, 1794, 1605"
+
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Import libraries
+
+library(tidyverse)
+library(dplyr)
+library(stringr)
+library(knitr)
+
+# Upload data file from local directory.
+
+datafile <- readLines('c:/data/project1data.txt', warn = FALSE)
+
+data <- data.frame(datafile)
+
+# Remove lines with only dashes
+
+df_clean = data.frame(data[-seq(from = 1, to= nrow(data), by= 3),])
+
+# Display data frame.
+df_clean
+
+# Split the data into two data frames based on the structure and content of each row.
+
+df_1 <- data.frame(df_clean[seq(from = 1, to = nrow(df_clean)-1, by = 2), ])
+
+df_2 <- data.frame(df_clean[seq(from = 2, to = nrow(df_clean), by = 2), ])
+
+# Display data frames.
+df_1
+
+df_2
+
+#Set column names
+
+colnames(df_1) <- c(df_1[1,])
+colnames(df_2) <- c(df_2[1,])
+
+columns_names_df1 <- colnames(df_1)
+columns_names_df2 <- colnames(df_2)
+
+# Split each data frame into columns using "|" as the delimiter.
+
+df1_split = data.frame(separate_wider_delim(df_1, cols = columns_names_df1, delim = '|', 
+                                 names = c('Player #','Name','Total','R1','R2','R3','R4','R5','R6','R7','R8')))
+
+df2_split = data.frame(separate_wider_delim(df_2, cols = columns_names_df2, delim = '|', 
+                                            names = c('State','Ratings','unknown','R1_result','R2_result',
+                                                      'R3_result','R4_result','R5_result','R6_result',
+                                                      'R7_result','R8_result')))
+
+# Drop duplicate header row and unneeded columns are dropped each data frame.
+
+df1_split_drop_header <- data.frame(df1_split[-1,])
+df2_split_drop_header <- data.frame(df2_split[-1,])
+
+df1_split_drop_columns <- data.frame(df1_split_drop_header[,-c(1,11)])
+df2_split_drop_columns <- data.frame(df2_split_drop_header[,-c(3,4,5,6,7,8,9,10,11)])
+
+df1_split_drop_columns
+df2_split_drop_columns
+
+# Working with the data frame 2 data first, the pre-rating for each player is found using a regex. Next, the now-unneeded row with the player code, pre-rating, and post-rating is dropped from the data frame, which is then reindexed.
+
+df2_split_drop_columns$PreRating <- str_match(df2_split_drop_columns$Ratings, '(?<=:\\s{1,2})\\d{1,4}')
+
+
+df2_final <- data.frame(df2_split_drop_columns[,-c(2)])
+
+rownames(df2_final) <- NULL
+
+#Display dataframe
+df2_final
+
+# For data frame 1, the opponent rank for each player in each round is pulled used a regex. The opponent ranks are then recapitulated in new columns. 
+
+df1_split_drop_columns$R1opp <- str_match(df1_split_drop_columns$R1, '\\d{1,2}')
+df1_split_drop_columns$R2opp <- str_match(df1_split_drop_columns$R2, '\\d{1,2}')
+df1_split_drop_columns$R3opp <- str_match(df1_split_drop_columns$R3, '\\d{1,2}')
+df1_split_drop_columns$R4opp <- str_match(df1_split_drop_columns$R4, '\\d{1,2}')
+df1_split_drop_columns$R5opp <- str_match(df1_split_drop_columns$R5, '\\d{1,2}')
+df1_split_drop_columns$R6opp <- str_match(df1_split_drop_columns$R6, '\\d{1,2}')
+df1_split_drop_columns$R7opp <- str_match(df1_split_drop_columns$R7, '\\d{1,2}')
+
+df1_final <- data.frame(df1_split_drop_columns[,-c(3,4,5,6,7,8,9)])
+
+rownames(df1_final) <- NULL
+
+#Display dataframe
+df1_final
+
+# Re-merge the two data frames into a single data frame. Additionally, the column 1 (Row.names) is renamed to Rank, converted to a numeric, then the data is reordered so the rank is equal to the index after re-indexing.  
+
+combined_df <- merge(df1_final, df2_final, by = 'row.names', all = TRUE)
+
+#Display dataframe
+combined_df
+
+colnames(combined_df)[1] <- 'Rank'
+
+combined_df$Rank <- as.numeric(as.character(combined_df$Rank))
+
+new_data <- combined_df[order(combined_df$Rank),]
+
+rownames(new_data) <- NULL
+
+#Display dataframe
+new_data
+
+#Generate vectors of each player's opponents rank in each round.
+opp1 <- new_data$R1opp
+opp2 <- new_data$R2opp
+opp3 <- new_data$R3opp
+opp4 <- new_data$R4opp
+opp5 <- new_data$R5opp
+opp6 <- new_data$R6opp
+opp7 <- new_data$R7opp
+
+#Lookup the pre-rating for each player's opponent using the rank of the opponent.
+lookup_opp1 <- new_data[opp1, "PreRating"]
+lookup_opp2 <- new_data[opp2, "PreRating"]
+lookup_opp3 <- new_data[opp3, "PreRating"]
+lookup_opp4 <- new_data[opp4, "PreRating"]
+lookup_opp5 <- new_data[opp5, "PreRating"]
+lookup_opp6 <- new_data[opp6, "PreRating"]
+lookup_opp7 <- new_data[opp7, "PreRating"]
+
+#Create new columns for the opponent pre-ratings from each round.
+new_data$r1_opp_rating <- as.numeric(as.character(lookup_opp1))
+new_data$r2_opp_rating <- as.numeric(as.character(lookup_opp2))
+new_data$r3_opp_rating <- as.numeric(as.character(lookup_opp3))
+new_data$r4_opp_rating <- as.numeric(as.character(lookup_opp4))
+new_data$r5_opp_rating <- as.numeric(as.character(lookup_opp5))
+new_data$r6_opp_rating <- as.numeric(as.character(lookup_opp6))
+new_data$r7_opp_rating <- as.numeric(as.character(lookup_opp7))
+
+#Calculate the mean pre-rating of the opponents of each player.
+new_data$Mean_opponent_PreRating <- round(rowMeans(new_data[, 13:19], na.rm = TRUE), digits = 0)
+
+#Drop unneeded columns.
+nearly_final_df = data.frame(new_data[,-c(1,4,5,6,7,8,9,10,13,14,15,16,17,18,19)])
+
+#Move the State column to the position dictacted in the Project instructions.
+final_df <- relocate(nearly_final_df, State, .after = Name)
+
+#Generate final csv file to local directory and display final dataframe.
+write.csv(final_df,'c:/data/project1_Results.csv', row.names = FALSE)
+kable(final_df)
+
+```
