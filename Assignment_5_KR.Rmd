@@ -1,0 +1,104 @@
+---
+title: "Assignment_5"
+author: "Keith Rafferty"
+date: "2024-09-29"
+output: html_document
+---
+## Data Import, Tidying, and Transformation
+
+The data is imported as a CVS file and converted to a data frame. The third row is dropped from the data frame because it is an empty row that served as a spacer between the data for the individual airlines in the CSV file. Next, the airline names are duplicated to fill in the missing values in rows 2 and 4 of column "X", which is then renamed "Airline". The data is then pivoted vertically so that the individual airport results are captured in a column containing the airport name and another column capturing the delay or on-time flight count. Lastly, two new columns are added to the data frame via the mutate() function: 1) the total flights at each airport for each air line and 2) the event rate (delay or on-time) for each airline at each airport. The completed tidy data set is displayed via kable() for clarity.
+
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#Load libraries needed for assignment.
+
+library(tidyverse)
+library(ggthemes)
+library(dplyr)
+library('RCurl')
+library(tidyverse)
+library(ggplot2)
+library(knitr)
+library(ggpubr
+        )
+#Import data set from GitHub
+
+getdata <- getURL('https://raw.githubusercontent.com/kr0710/Data607/refs/heads/main/Assignment_5_data.csv')
+
+#Convert data to a data frame, drop empty rows, fill in missing row and column names
+
+df <- read.csv(text = getdata)[-c(3),]
+df <- read.csv('c:/data/Assignment_5_data.csv')[-c(3),]
+df$X <- c(df$X[1], df$X[1], df$X[3], df$X[3])
+colnames(df)[1] <- "Airline"
+colnames(df)[2] <- "flight_fate"
+
+#Pivot dat vertically 
+
+df_pivot <-
+  pivot_longer(df,
+    cols = colnames(df)[3:7],
+    names_to = 'Airport',
+    values_to = 'fate_count',
+  )
+
+#Add columns to calculate total flights at each airport for each airline
+#Calculate delayed or on-time flight rates
+df_final <-
+  df_pivot |>
+  group_by(Airline, Airport) |>
+  mutate(total_flights = sum(fate_count)) |>
+  mutate(fate_rate = round((fate_count/total_flights)*100, digits = 2))
+
+#display tidy and transformed data
+kable(df_final)
+
+```
+# Data Visualization and Analysis
+
+The data frame is then bifurcated into two data frames depending on the status of the flight (i.e. "flight_fate"). The  "fate_rate" (i.e. rate of delay or on-time flights) of the airports and airlines in each respective data frame are both visualized via ggplot2.
+
+At all five airports, it appears that Alaskan Airlines outperforms AM West in respect to lower rates of delayed flights. Naturally, Alaskan airlines also has higher on-time rates across the board at each airport surveyed. Lastly, the relationship between total flights and the delayed flight rate is examined in graphical form. However, there is not a strongly correlated relationship between these two variables, but obviously the data is quite limited (n=10). 
+
+```{r echo = FALSE, results= 'asis'}
+#Filter df_final to isolate delayed flight counts
+
+delayed_df <-
+  df_final |>
+  filter (flight_fate == 'delayed') |>
+  select(Airline, Airport, flight_fate, total_flights, fate_rate)
+
+#Filter df_final to isolate on-time counts
+on_time_df <-
+  df_final |>
+  filter (flight_fate == 'on time') |>
+  select(Airline, Airport, flight_fate, total_flights, fate_rate)
+
+# Display delayed flight data and graph
+
+kable(delayed_df)
+
+ggplot(delayed_df, aes(x = Airport, y = fate_rate, fill = Airline)) +
+  geom_bar(position="dodge", stat="identity") +
+  labs(y = "Delayed Flights (%)", title = "Delayed Flight Rates")
+
+# Display on-time flight data and graph
+kable(on_time_df)
+
+ggplot(on_time_df, aes(x = Airport, y = fate_rate, fill = Airline)) +
+  geom_bar(position="dodge", stat="identity") +
+  labs(y = "On Time Flights (%)", title = "On Time Flight Rates")
+
+#Examine the relationship b/t total flights at an airport and delay rates
+
+ggplot(delayed_df, aes(x = total_flights, y = fate_rate)) +
+  geom_point(aes(color = Airport)) +
+  geom_smooth(method = "lm", se=FALSE, formula = y ~ x) +
+  labs(y = "Delayed Flights (%)", x = "Total Flights",
+  title = "Delayed Flight Rates vs. Total Flights") +
+  stat_regline_equation(label.x=4100, label.y=30) +
+  stat_cor(aes(label=after_stat(rr.label)), label.x=4100, label.y=28)
+
+```
+
