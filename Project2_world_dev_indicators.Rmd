@@ -1,0 +1,57 @@
+---
+title: "Project2_world_dev_indicators"
+author: "Keith Rafferty"
+date: "2024-10-06"
+output: html_document
+---
+## Overview of Tidying and Example Analysis
+
+The data set has a few opportunities for tidying. The column "Country_Code", which contains a three letter code to indicate the country, is dropped since it both redundant with and less informative than the preceding "Country_Name" column. The column "Series_Name" is dropped because it is too wordy for the purposes here and the "Series_Code" column provides something more lean with which to work. Next, for some records, there are no data for a given year as indicated by a double period (".."); I replaced all instances of  ".." with NA to enable seamless downstream calculations. Next, there is an opportunity to pivot the yearly population data vertically. Lastly, two non-conforming rows containing the source of the data and the date it was last updated are dropped from the data frame. 
+
+In terms of graphing, no exact end-point was specified, but I decided to visualize measles immunization rates by country in 2022. The immunization rates span from 81% to 99%; surprisingly, the United States lingers somewhere in the middle at 92%. Notably, the herd immunity threshold for measles is thought to be in the low 90s and several countries are below this rate range. 
+
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#Import libraries
+library(tidyverse)
+library(ggthemes)
+library(dplyr)
+library('RCurl')
+library(tidyverse)
+library(ggplot2)
+library(knitr)
+library(ggpubr)
+
+#Read data 
+
+getdata <- getURL('https://raw.githubusercontent.com/kr0710/Data607/refs/heads/main/world_development_indicators.csv')
+
+df <- read.csv(text = getdata, header = TRUE)
+
+#Drop unneeded columns
+
+df_drop <- df[,-c(2,3)]
+
+colnames(df_drop)[3:12] <- c(2014,2015,2016,2017,2018,2019,2020,2021,2022,2023)
+
+# Drop two rows that do not contain data
+df_drop <- df_drop[-c(1084, 1085),]
+
+df_pivot <-
+  pivot_longer(df_drop,
+               cols = colnames(df_drop)[3:12],
+               names_to = 'Year',
+               values_to = 'Measure'
+  )
+
+df_pivot[df_pivot == ".."] <- NA
+
+#Visualize measles immunization rates in 2022 by country
+df_pivot |>
+  filter (Year == 2022, Series_Code == "SH.IMM.MEAS") |>
+    ggplot(aes(x = Country_Name, y = Measure, fill = Country_Name)) +
+      geom_bar(position="dodge", stat="identity") +
+      theme(axis.text.x=element_text(angle=90))
+
+```
