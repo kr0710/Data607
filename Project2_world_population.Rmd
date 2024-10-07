@@ -1,0 +1,65 @@
+---
+title: "Project2_world_population"
+author: "Keith Rafferty"
+date: "2024-10-06"
+output: html_document
+---
+## Overview of Tidying and Example Analysis
+
+The data set has a couple opportunities for tidying. The column "CCA3", which contains a three letter code to indicate the country, is dropped since it both redundant with and less informative than the "Country/Territory" column. Arguably other columns could also be dropped depending on the analysis objective, but for this project I left the remaining columns intact. Next, there is an opportunity to pivot the yearly population data vertically. The final tidy data frame is displayed via the kable() function.
+
+In terms of graphing, no exact end-point was specified, but I decided to work on my filtering skills and visualize population changes Europe's most populous (>50,000,000 people) countries over the last 14 years. Of the five countries that were filtered into the graphed data set, four (Germany, Russia, UK, and France) saw slow population growth between 2010 and 2020, before plateauing or slightly declining thereafter, perhaps due to the consequences of the COVID Pandemic. On the other hand, Italy has seen a stable to slightly declining from population from 2010 onward. 
+
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#Import Libraries
+
+library(tidyverse)
+library(ggthemes)
+library(dplyr)
+library('RCurl')
+library(tidyverse)
+library(ggplot2)
+library(knitr)
+
+#read csv from github 
+
+getdata <- getURL('https://raw.githubusercontent.com/kr0710/Data607/refs/heads/main/world_population.csv')
+
+df <- read.csv(text = getdata, header = TRUE)
+
+#Drop unneeded columns and rename others
+
+df_drop <- df[,-c(2)]
+
+colnames(df_drop)[5:12] <- c(2022,2020,2015,2010,2000,1990,1980,1970)
+
+colnames(df_drop)[2] <- "Country"
+
+#Pivot the data vertically
+
+df_pivot <-
+  pivot_longer(df_drop,
+               cols = colnames(df_drop)[5:12],
+               names_to = 'Year',
+               values_to = 'Population',
+  )
+
+
+#Display final dataframe
+kable(df_pivot)
+
+#Visualize changes in population in Europe's most populous countries since 2010.
+df_pivot |>
+  filter(Continent == "Europe", Year >= 2010, Population > 50000000) |>
+    ggplot(aes(x = Year, y = Population, group = Country, colour = Country)) +
+      geom_line()+
+        theme(legend.key.size = unit(1, 'cm'),
+        legend.key.height = unit(1, 'cm'), 
+        legend.key.width = unit(1, 'cm'), 
+        legend.text = element_text(size=8))
+
+```
+  
+
