@@ -1,0 +1,82 @@
+---
+title: "Project2_Buffalo_Snow"
+author: "Keith Rafferty"
+date: "2024-10-06"
+output: html_document
+---
+## Overview of Tidying and Example Analysis
+
+The data set has a number of elements that require tidying. First, the header row is regularly repeated throughout the data set, so these rows need to be removed. Secondly, for some observations, the snow fall amount is recorded as "T", indicating a trace amount of snow; however, trace amounts do not appear to impact the annual sum and can therefore be changed to 0 for all practical purposes. Lastly, there is an opportunity to pivot the monthly data vertically. The annual data column could also theoretically be pivoted, but I did not choose to do so here thinking it would be helpful to maintain it adjacent to monthly data for potential mutation purposes.  
+
+In terms of analysis, all data at first was graphed via geomline(). While this graph does reveal significant (albeit predictable) patterns of snow fall by month across all years, it's not easy to see which months had the largest snowfall amounts. In order to display the months with the greatest snowfall amounts, the data is filtered for months with snow fall amounts greater than 40 inches. This filtered data set reveals the month with the greatest amount of snow was December 2001-02 season that had a record of 82.7 inches, 14 inches more than the second place event of 68.4 inches. Interestingly, most of the months with more than 40 inches of snowfall are either December or January, indicating early winter is perhaps more "snowy" than later winter. 
+
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#Import Libraries
+
+library(tidyverse)
+library(ggthemes)
+library(dplyr)
+library('RCurl')
+library(tidyverse)
+library(ggplot2)
+library(knitr)
+
+#read csv from github 
+
+getdata <- getURL('https://raw.githubusercontent.com/kr0710/Data607/refs/heads/main/buffalo_snow.csv')
+
+df <- read.csv(text = getdata, header = TRUE)
+
+
+#drop duplicated header throws interspersed throughout the data
+#drop months and years that have not occurred yet
+
+df_drop <- df[-c(11,22,33,44,55,66,77,88, 93, 94, 95, 96, 97, 98),]
+
+#Replace "T", which indicates trace amounts of snow, with 0's
+
+df_drop[df_drop == "T"] <- 0
+
+# Pivot the monthly data vertically
+df_pivot <-
+  pivot_longer(df_drop,
+               cols = colnames(df_drop)[2:13],
+               names_to = 'Month',
+               values_to = 'Snowfall'
+  )
+
+#Set and factor the month order to be used in the ggplot.
+#Without these steps, the months would appear in alphabetical order on graphs 
+
+month_order <- c('JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP',
+                 'OCT', 'NOV', 'DEC')
+
+df_pivot$Month <- factor(df_pivot$Month, levels=month_order)
+
+#convert snowfall to numerics
+
+df_pivot$Snowfall <- as.numeric(df_pivot$Snowfall)
+
+#Show tidy dataframe
+kable(df_pivot)
+
+#Graph all data
+
+ggplot(df_pivot, aes(x = Month, y = Snowfall, group = SEASON, colour = SEASON)) +
+  geom_line()+
+  scale_y_continuous(breaks = seq(0, 100, by=10), limits=c(0,100)) +
+  theme(legend.key.size = unit(.5, 'cm'), #change legend key size
+        legend.key.height = unit(.5, 'cm'), #change legend key height
+        legend.key.width = unit(.5, 'cm'), #change legend key width
+        legend.text = element_text(size=5)) #change legend text font size
+
+#Create a table of the months with the greatest snowfall (more than 40 inches)
+
+df_max_snow <- arrange(filter(df_pivot, Snowfall > 40), desc(Snowfall))
+
+kable(df_max_snow)
+  
+
+```
