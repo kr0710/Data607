@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<books>
+	<book>
+		<Book_title>One hundred years of solitude</Book_title>
+		<Authors>Gabriel Garcia Marquez</Authors>
+		<Pages>417</Pages>
+		<Published_year>1967</Published_year>
+	</book>
+
+	<book>
+		<Book_title>The signal and the noise</Book_title>
+		<Authors>Nate Silver</Authors>
+		<Pages>534</Pages>
+		<Published_year>2012</Published_year>
+	</book>
+
+	<book>
+		<Book_title>Nudge</Book_title>
+		<Authors>Richard Thaler, Cass Sunstein</Authors>
+		<Pages>312</Pages>
+		<Published_year>2008</Published_year>
+	</book>
+
+
+</books>

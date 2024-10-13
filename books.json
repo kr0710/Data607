@@ -1,0 +1,23 @@
+{
+"Books" : [
+  {
+	"Book_title": "One hundred years of solitude",
+	"Authors": "Gabriel Garcia Marquez",
+	"Pages": 417,
+	"Published_year": 1967
+  },
+  {
+  	"Book_title": "The signal and the noise",
+	"Authors": "Nate Silver",
+	"Pages": 534,
+	"Published_year": 2012
+    
+  },
+    {
+  	"Book_title": "Nudge",
+	"Authors": "Richard Thaler, Cass Sunstein",
+	"Pages": 312,
+	"Published_year": 2008
+    
+  }]}
+  
