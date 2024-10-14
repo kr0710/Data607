@@ -1,0 +1,67 @@
+---
+title: "Assignment_7"
+author: "Keith Rafferty"
+date: "2024-10-14"
+output: html_document
+---
+## Overview
+
+The manually formatted html, xml, and json files contain information for three books. Each book entry contains the title of the book, the author(s), the page count, and the year the book was first published. Using various packages, the data from each file structure is retrieved from github, imported, and then converted into a data frame, which is displayed via printing and the kable function.
+
+
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#Import libraries
+library(tidyverse)
+library(dplyr)
+library('RCurl')
+library(knitr)
+library(htmltools)
+library(XML)
+library(rjson)
+library(rvest)
+library(xml2)
+library(jsonlite)
+
+#read data from html file and convert to a data frame
+
+htmldata <- getURL('https://raw.githubusercontent.com/kr0710/Data607/refs/heads/main/books.html')
+
+df_html <- html_table(read_html(htmldata))
+
+df_html
+
+kable(df_html)
+
+#Read data from xml file and convert to a data frame
+
+getxml <- getURL('https://raw.githubusercontent.com/kr0710/Data607/refs/heads/main/books.xml')
+
+getxml2 <- read_xml(getxml)
+
+getxml3 <- xml_find_all(getxml2, "//book")
+
+xml_df <- data.frame(
+  Book_title = xml_text(xml_find_all(getxml3, ".//Book_title")),
+  Authors = xml_text(xml_find_all(getxml3, ".//Authors")),
+  Pages = xml_text(xml_find_all(getxml3, ".//Pages")),
+  Published_year = xml_text(xml_find_all(getxml3, ".//Published_year"))
+)
+
+xml_df
+
+kable(xml_df)
+
+#read json data and convert to a data frame
+
+json_data <- getURL('https://raw.githubusercontent.com/kr0710/Data607/refs/heads/main/books.json')
+
+json_df <- fromJSON(json_data)
+
+json_df
+
+kable(json_df)
+
+```
+
