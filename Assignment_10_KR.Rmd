@@ -1,0 +1,91 @@
+---
+title: "Assignment_10"
+author: "Keith Rafferty"
+date: "2024-11-03"
+output:
+  html_document: default
+  pdf_document: default
+---
+## Sentiment Analysis of the Inaugural Speeches of Presidents Barack Obama and Donald Trump
+
+It is the eve of another polarizing Presidential election in the United States. The winner of the election will be in inaugurated on January 20th 2025 and then have the opportunity to speak to the nation for the first time as President via the inaugural address. While the corpus of each President's recorded words spans far beyond the inaugural address, the inaugural address is a unique opportunity to set the tone for an administration, frame the values they believe in, the policies they will pursue, and attempt to heal the wounds wrought by a contentious election. Perhaps the two most influential political figures in 21st century American politics have been Barack Obama and Donald Trump. These men represent wildly different political viewpoints, rhetorical styles, and value systems. Moreover, these speeches occurred in different historical contexts. Are these differences apparent in sentiment analysis of their inaugural speeches?
+
+## Technical Overview
+Note that parts of this code were adopted from examples in Chapter 2 of "Tidy Text Mining with R" by Julia Silge and David Robinson. 
+
+The texts from both President Obama's 2009 inaugural speech and President Trump's 2017 inaugural speech were retrieved using the gutenbergr library. Next, each respective text data set is tokenized; additionally, stop words are removed from the data sets. Next, the respective speech data sets are subjected to separate sentiment scoring analyses via the bing, nrc, and afinn lexicons. Note the the nrc lexicon was limited to "positive" and "negative" bins. The bing and nrc sentiments are combined for plotting and comparison in ggplot since they both bin the words as "positive" and "negative"; the proportion of each President's words that fall in each bin are presented. For the afinn sentiment scoring results, the mean score is plotted via ggplot.
+
+## Analysis
+Very surprisingly, given his general reputation for saying controversial things, President Trump used a greater portion of positive words (as scored via nrc and bing) and had a higher mean sentiment score (afinn). It is important to remember that this analysis considers only a single speech, so real patterns in sentiment probably cannot be reliably detected here. Additionally, scoring the sentiment of the words without context is imperfect, especially given the small data set. A more thorough examination of the sentiments of each President would require a larger corpus of speeches and comments. 
+
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#Parts of this code were adopted from Chapter 2 of "Tidy Text Mining with R" by Julia Silge and David Robinson
+
+
+#Import libraries
+library(tidytext)
+library(dplyr)
+library(tidyverse)
+library(gutenbergr)
+data("stop_words")
+
+#Get and tidy Obama's speech
+obama_speech <-  gutenberg_download(c(28001))
+
+tidy_obama <- obama_speech |>
+  unnest_tokens(word, text) |>
+  anti_join(stop_words) |>
+  mutate(president = "Obama")
+
+#Get and tidy Trump's speech
+trump_speech <- gutenberg_download(c(57953))
+
+tidy_trump <- trump_speech |>
+  unnest_tokens(word, text) |>
+  anti_join(stop_words) |>
+  mutate(president = "Trump")
+
+#Generate positive and negative sentiment calls using bing and nrc on the combined words from each president's speech 
+
+combined_speeches_bing <- rbind(tidy_obama, tidy_trump) |>
+  inner_join(get_sentiments("bing")) |>
+  mutate(method = 'bing')
+
+combined_speeches_nrc <- rbind(tidy_obama, tidy_trump) |>
+  inner_join(get_sentiments("nrc")) |>
+  filter(sentiment %in% c("positive", "negative")) |>
+  mutate(method = 'nrc')
+
+combined_speeches_afinn <- rbind(tidy_obama, tidy_trump) |>
+  inner_join(get_sentiments("afinn")) |>
+  mutate(method = 'afinn')
+
+
+#Combine the nrc and bing datasets
+final_speech_pn <- rbind(combined_speeches_nrc, 
+                         combined_speeches_bing)
+
+#Plot the proportion of words that are positive or negative in each speech
+  
+final_speech_pn |>
+  group_by(president, method)|>
+  mutate(n_sentiments = n()) |>
+  ungroup() |>
+  group_by(president, sentiment, method) |>
+  mutate(sen_count = n(), proportion = (sen_count/n_sentiments)*100) |>
+  summarize(percent_of_words = mean(proportion)) |>
+  ggplot(aes(x = sentiment, y = percent_of_words, fill = sentiment)) +
+  geom_col() + 
+  facet_grid(rows = vars(method), cols = vars(president))
+
+#Plot the mean values assigned by the afinn lexicon
+combined_speeches_afinn |>
+  group_by(president) |>
+  summarize(mean_sentiment = mean(value))|>   
+  ggplot(aes(x = president, y = mean_sentiment, fill = president)) +
+  geom_col()
+  
+
+```
