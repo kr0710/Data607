@@ -1,0 +1,34 @@
+---
+title: "DATA607_Discussion11"
+author: "Keith Rafferty"
+date: "2024-11-10"
+output: html_document
+---
+# Design Scenario for Youtube's Recommender System
+
+Youtube is among the most popular websites in the world, perhaps only rivaled by Google in terms of active users and site visits per month. Given this prominent position, Youtube's system for making video recommendations has been under the spotlight in recent years, receiving particular criticism for both exacerbating political polarization and facilitating the spread of disinformation. Has Youtube's recommender system failed its users? Or is it possible that Youtube's recommender system is actually quite successful in recommending content, but that unfortunately creates certain negative side effects (e.g. echo chambers). The truth is probably somewhere in between. Here I consider the questions of Design Scenario for Youtube's recommender system. 
+
+## Question 1: Who are the target users?
+Youtube's regular user base is massive, equaling over 2 billion people from all over the globe. While obviously a user base of billions of people is desired for Youtube, it also means a user base that is extremely diverse and challenging from the perspective of designing a suitable, responsible recommender system. 
+
+## Question 2: What are their goals?
+Youtube's users likely have a mix of motivations. Casual entertainment is probably the main major driver of user interaction; a subtlety here is that that the user may not know exactly they want to be entertained by at particular moment and may therefore rely heavily upon the recommendations for suggestions. Additionally, information seeking or learning also a key goal; this is less likely to be spontaneous than casual entertainment. Lastly, user engagement via comments, live streaming, etc. help facilitate a sense of social interaction.
+
+## Question 3: How can you help them accomplish their goals?
+The primary means of helping users will be to efficiently direct users to content that satisfies their endpoint. A secondary objective is to introduce them to new, related content that also may be of interest to them.
+
+## How does Youtube's recommendation system work?
+While the exact mechanisms of Youtube's recommender system are proprietary, they are open about the basic inputs for their system: watch history, search history, likes, dislikes, recommendation feedback selections, channel subscriptions, and satisfaction surveys. Youtube does not go into great detail about how these factors are weighted, but does offer some select insights: "Different YouTube features rely on certain recommendation signals more than others. For example, we use the video you’re currently watching as the main signal when suggesting a video to play next. To provide video recommendations on the homepage, we primarily rely on your watch history." 
+
+While it is not explicitly stated, I speculate that the video length (i.e. time) is also an important factor in the recommendation system. For example, I would guess that videos of shorter duration (e.g. a few minutes) are more likely to be recommended than longer videos. Such a bias towards shorter videos may hold user attention better. Moreover, it generates more data, more quickly for the recommendation system than longer videos. 
+
+Another input not mentioned above is how frequently a video is shared or promoted on other social media platforms. A video that is being shared frequently on Facebook or similar platform probably scores better in the recommendation system than a video that is not being shared on other platforms. 
+
+## How could Youtube's recommendation system be improved?
+Ironically, I think making Youtube's recommendation worse would make it better! One common societal criticism of Youtube's recommendation system is that it promotes political or ideological polarization by trapping people in echo chambers of video suggestions. While it may not be optimal from a strict view on the purpose of recommendation systems, deliberately incorporating some counter-pattern recommendations may at least offer individuals the opportunity to be exposed to diverse political perspectives. 
+
+## References
+https://en.wikipedia.org/wiki/List_of_most-visited_websites
+https://pmc.ncbi.nlm.nih.gov/articles/PMC7613872/
+https://www.youtube.com/howyoutubeworks/product-features/recommendations/#signals-used-to-recommend-content
+https://medium.com/@sunil.manjunath.ca/inside-youtubes-recommendation-engine-scaling-personalized-content-1a217738a042
