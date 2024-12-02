@@ -1,0 +1,90 @@
+---
+title: "Project4_document_classifier"
+author: "Keith Rafferty"
+date: "2024-12-01"
+output: html_document
+---
+### Assignment Overview and Data Import
+
+The goal here is to develop a classification model for determining if a message is spam (i.e. dangerous) or ham (i.e. safe). I found and selected a spam and ham dataset of 5,572 text messages freely available via Kaggle (https://www.kaggle.com/datasets/uciml/sms-spam-collection-dataset), which I downloaded and then stored in my github for ease of use. The data is chiefly composed of two columns: the first contains the classification of the message (i.e. spam or ham), while the second column contains the message contents.
+
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Import libraries
+library(tm)
+library(tidyverse)
+library(knitr)
+library('RCurl')
+library(quanteda)
+library(caTools)
+library(pscl)
+library(randomForest)
+library(caret)
+
+#read csv from github and rename columns for clarity
+getdata <- getURL('https://raw.githubusercontent.com/kr0710/Data607/refs/heads/main/spamham.csv')
+
+df <- read.csv(text = getdata, header = TRUE)[,c(1,2)]
+colnames(df) <- c('classification', 'text_messages')
+
+#View the first ten entries in the data set
+kable(df[c(1:10),])
+
+```
+### Corpus generation for modeling
+The text corpus is generated using Vcorpus, then processed with various functions using tm_map. The processed corpus is then converted into a document term matrix, which is further filtered based on term scarcity to focus on a sub sample of terms. The DTM results are converted to a data frame and recombined with the original classification (ham or spam) from the original data set using cbind. Next, the ham and span classifications are factorized (ham = 0, spam = 1) to facilitate predictive modeling.
+
+```{r echo = TRUE, results= 'asis'}
+
+#generate and process corpus
+
+msgcorpus <- VCorpus(VectorSource(df$text_messages))
+
+clean_corpus <- msgcorpus |>
+  tm_map(stripWhitespace) |>
+  tm_map(removePunctuation) |>
+  tm_map(content_transformer(tolower)) |>
+  tm_map(removeWords, stopwords("english"))
+
+#generate document term matrix and remove sparsest terms
+dtm <- DocumentTermMatrix(clean_corpus)
+
+dtm_nonsparse <- removeSparseTerms(dtm, .9975)
+
+#combine with original classifications and factorize ham and spam to 0 and 1, respectively
+dtm_df <- as.data.frame(as.matrix(dtm_nonsparse))
+
+combined_df <- cbind(dtm_df, df$classification)
+
+
+colnames(combined_df)[613] <- 'classification'
+
+
+combined_df$classification <- factor(combined_df$classification,
+                                     levels = c('ham', 'spam'),
+                                     labels = c(0,1))
+
+
+```
+### Modeling spam and ham messages using a random forest classifier 
+
+I originally sought to build a classifier using KNN, but the algorithm consistently raised errors due to an inability to resolve ties, even if K were set to 1. Thus, I switched gears and built a classifier using a random forest. The data is split: 70% of rows are used for training, 30% used to test. The random forest model makes 50 trees from which it classifies each of the training or test samples. Both the training results show that this classifier is pretty good at classifying ham as such (training error = 0.80%, test error = 0.70%), but misclassifies about 20% of spam as ham in both the training and test sets, an error rate that is probably too high. The error rate in classifying spam could potentially be reduced with different models or tuning the random forest model further, but different data features could also be informative. For example, keeping even sparser terms from the DTM set might lead to better classification of spam.
+```{r echo = TRUE, results= 'asis'}
+set.seed(123)
+split <- sample.split(combined_df$classification, SplitRatio = .7)
+rftrain <- subset(combined_df, split == TRUE)
+rftest <- subset(combined_df, split == FALSE)
+
+rfclassifier <- randomForest(x = rftrain[-613],
+                             y = rftrain$classification,
+                             ntree = 50)
+rfclassifier
+
+rfpredict <- predict(rfclassifier, newdata = rftest[-613])
+
+rfcm <- confusionMatrix(data=rfpredict, reference=rftest[,613])
+
+rfcm
+```
+
