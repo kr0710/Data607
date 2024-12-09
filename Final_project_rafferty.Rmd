@@ -1,0 +1,281 @@
+---
+title: "Final_Project"
+author: "Keith Rafferty"
+date: "2024-12-08"
+output: html_document
+---
+### Overview of Data Set: Whiskey Ratings
+
+It's the season of fine food and drinks, especially spirits, which are both suitable gifts and celebratory libations. There are hundreds, even thousands of different whiskeys on the market, encompassing a range of types, qualities, and tastes. Price point, in particular, is of interest since it's not always clear that quality follows cost, at least not in proportion to the extra money spent. Can a data science approach help illuminate some of the questions regarding whiskey quality and price? To help answer these questions, the code that follows scrapes ratings from the LA Whiskey Society's summary page (https://www.lawhiskeysociety.com/whiskey_list.php?brand=&dist=&order=bottler&asc=ASC&page=0&f_records=100000&f_alpha=&f_reset=1&f_a_reset=0&f_multiple=0&f___type=0&f_subtype=0&f_member=0&f_added=0), as well the more detailed profiles of individual whiskeys. There are 3832 whiskeys rated on the website, but here I scrape only 125 of them since early testing of this pipeline showed scraping the information for all 3832 would take significant time and led to website timeouts. 
+
+### Data Scraping and Tidying of the Main Data Set
+
+The html data from the source site is pulled using read_html(). Next, I locate the main table containing the whiskey ratings using some rvest tools; however, the data frame is a little untidy since it contains both rows and columns that are mostly empty and/or contain duplicate information. To tidy things up, I subset data frame to only the necessary rows and columns. Next, the values in columns "Aged", "Cost", and "Vintage" are altered to contain just their numerics to ease the use of these columns for possible analyses. For example, the dollar sign ($) is removed from the values in the "Cost" column. Additionally, the letter grade quality score is converted to a number score (0-10) in a new column using the mutate() function. This data frame is now ready to be joined with the data frame containing additional information scraped from the individual profile sites of each whiskey (described in a following section).
+
+```{r setup, include=TRUE, warning=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#Import libraries 
+library(tidyverse, warn.conflicts = FALSE, quietly = TRUE)
+library(dplyr, warn.conflicts = FALSE, quietly = TRUE)
+library(stringr, warn.conflicts = FALSE, quietly = TRUE)
+library(knitr, warn.conflicts = FALSE, quietly = TRUE)
+library(caTools, warn.conflicts = FALSE, quietly = TRUE)
+library(pscl, warn.conflicts = FALSE, quietly = TRUE)
+library(randomForest, warn.conflicts = FALSE, quietly = TRUE)
+library(caret, warn.conflicts = FALSE, quietly = TRUE)
+library(RCurl, warn.conflicts = FALSE, quietly = TRUE)
+library(ggplot2, warn.conflicts = FALSE, quietly = TRUE)
+library(readr, warn.conflicts = FALSE, quietly = TRUE)
+library(stringr, warn.conflicts = FALSE, quietly = TRUE)
+library(lubridate, warn.conflicts = FALSE, quietly = TRUE)
+library(ggplot2, warn.conflicts = FALSE, quietly = TRUE)
+library(ggthemes, warn.conflicts = FALSE, quietly = TRUE)
+library('RCurl', warn.conflicts = FALSE, quietly = TRUE)
+library(knitr, warn.conflicts = FALSE, quietly = TRUE)
+library(httr, warn.conflicts = FALSE, quietly = TRUE)
+library(htmltools, warn.conflicts = FALSE, quietly = TRUE)
+library(rvest, warn.conflicts = FALSE, quietly = TRUE)
+library(htm2txt, warn.conflicts = FALSE, quietly = TRUE)
+library(tidytext, warn.conflicts = FALSE, quietly = TRUE)
+library(stopwords, warn.conflicts = FALSE, quietly = TRUE)
+library(gutenbergr, warn.conflicts = FALSE, quietly = TRUE)
+library(ggpubr, warn.conflicts = FALSE, quietly = TRUE)
+data('stop_words')
+
+#Pull the main data set from the website
+
+data_pull <- read_html('https://www.lawhiskeysociety.com/whiskey_list.php?brand=&dist=&order=name&asc=ASC&page=0&f_records=100000&f_alpha=&f_reset=1&f_a_reset=0&f_multiple=0&f___type=0&f_subtype=0&f_member=0&f_added=0')
+
+#Find the main table containing whiskey ratings using rvest tools
+main_whiskey_data <- data_pull |> 
+  html_elements('.tableContent') |> 
+  html_table(convert = TRUE)
+
+#the table needs some tidying
+main_whiskey_data
+
+#subset the table to contain only rows and columns with complete whiskey information
+df_whiskey_main <- main_whiskey_data[[1]][seq(from = 1, to = nrow(main_whiskey_data[[1]]), by = 3), ] |>
+  select(X1, X2, X3, X4, X5, X8)
+
+#Rename columns, adjust the format of values in the Aged,Cost, and Vintage columns to contain just the numbers
+#Convert the letter ratings to a number score 0 - 10 in a new column
+colnames(df_whiskey_main) <- c('Whiskey', 'Aged', 'Vintage', 'Company', 'Cost', 'Letter_score')
+df_whiskey_main$Aged <- as.numeric(str_match(df_whiskey_main$Aged, '\\d{1,2}'))
+df_whiskey_main$Cost <- as.numeric(str_match(df_whiskey_main$Cost, '\\d{1,8}'))
+df_whiskey_main$Vintage <- as.numeric(df_whiskey_main$Vintage)
+df_whiskey_main_final <- df_whiskey_main |>
+  mutate(number_score = case_when(Letter_score == 'F' ~ 0,
+                                  Letter_score == 'D' ~ 1,
+                                  Letter_score == 'D+' ~ 2,
+                                  Letter_score == 'C-' ~ 3 ,
+                                  Letter_score == 'C' ~ 4,
+                                  Letter_score == 'C+' ~ 5,
+                                  Letter_score == 'B-' ~ 6,
+                                  Letter_score == 'B' ~ 7,
+                                  Letter_score == 'B+' ~ 8,
+                                  Letter_score == 'A-' ~ 9,
+                                  Letter_score == 'A' ~ 10))
+
+#Display the first five entries in the main data frame
+kable(df_whiskey_main_final[c(1:5),])
+
+```
+### Data Scraping and Tidying of Secondary Information
+While the first data frame (df_whiskey_main_final) contains most of the information I wanted, there was an opportunity to glean additional details about each whiskey by scraping their individual profile sites. I collected a list of the profile sites by using rvest tools to pull out all the href attributes. An empty data frame ('moreInfo_df) was formed to catch the additional information, which was derived by looping through and scraping each of the profile websites. As previously mentioned, not all 3832 whiskeys are being analyzed in this set, so only 125 of the profiles were scraped here. A random number generator was used to generate the indices of the sites to be scraped; note that set.seed() was used for reproducing the random indices between runs of this program. A loop was used to extract the information from each profile, as well as conducting a sentiment analysis of the reviews for each whiskey; "afinn" was selected for scoring sentiments as it provides a numeric score. The scraped information from each whiskey profile is formatted into data frame, which is then added to the to previously initialized moreInfo_df via rbind(). When all the profile URLs have looped and the moreInfo_df data frame is ready, it is then combined with the df_whiskey_main_final data frame from the prior coding chunk to form the complete data frame containing all the desired information for each of the whiskeys. The completed_whiskey_df data frame is now ready to be used for analyses.  
+
+```{r echo = TRUE, results= 'asis', warning=FALSE, message=FALSE}
+
+#Pull whiskey profile websites
+whiskey_websites <- data_pull |> html_elements('.tableContent') |>
+  html_elements('tr') |>
+  html_elements('td') |>
+  html_elements('a') |>
+  html_attr('href')
+
+
+#Initialize an empty data frame to capture additional info
+moreInfo_df <- data.frame(country_origin = character(),
+                          subtype = character(),
+                          alcoholPerc = as.numeric(),
+                          region_made = character(),
+                          scarcity = character(),
+                          review_num = as.numeric(),
+                          mean_sentiment_score = as.numeric())
+
+
+#Complete the website URLs
+all_whiskey_webs <- paste("https://www.lawhiskeysociety.com/", whiskey_websites, sep='')
+
+#Set seed for random number generator
+set.seed(250)
+
+
+#generate list of random numbers to be used as indices 
+random_numbers <- sample(1:3832, 125, replace = FALSE)
+
+#subset the list of profile URLs using the random numbers
+whiskey_webs_slice <- all_whiskey_webs[random_numbers]
+
+#Loop through the profiles and extract information, including sentiment analysis of reviews. Add the information to moreInfo_df.
+for(site in whiskey_webs_slice) {
+  website_df <- read_html(site, warn = FALSE)
+  website_info <- website_df |> html_elements('.textValuePopup') |> html_text2()
+  Country <- website_info[3]
+  type <- website_info[5]
+  ABV <- as.numeric(str_match(website_info[6], '\\d{1,3}.\\d{1,2}'))
+  region <- website_info[7]
+  availability <- website_info[9]
+  
+  website_stuff_reviews <- website_df |> html_elements('.contentCell2Popup') |> html_text2()
+  num_of_reviews <- length(website_stuff_reviews)/3
+  reviews <- as_tibble(website_stuff_reviews[seq(from =3, to = length(website_stuff_reviews), by = 3)])
+  afinn_senti <- reviews |> 
+    unnest_tokens(word, value) |>
+    anti_join(stop_words) |>
+    inner_join(get_sentiments("afinn"))
+  
+  mean_afinn_score <- mean(afinn_senti$value)
+  
+  whiskey_web_df <- data.frame(country_origin = c(Country),
+                               subtype = c(type),
+                               abv = c(ABV),
+                               region_made = c(region),
+                               scarcity = c(availability),
+                               review_count = c(num_of_reviews),
+                               mean_sentiment_score = c(mean_afinn_score))
+  
+  moreInfo_df <- rbind(moreInfo_df, whiskey_web_df)
+
+}
+
+#Display the first five entries of the moreInfo_df
+kable(moreInfo_df[c(1:5),])
+
+#subset the df_whiskey_main_final data frame using the randomly generated numbers
+df_main_sub <- df_whiskey_main_final[random_numbers,]
+
+#bind the two data frames together
+completed_whiskey_df <- cbind(df_main_sub, moreInfo_df)
+
+#Display the first five entries of the completed_whiskey_df
+kable(completed_whiskey_df[c(1:5),])
+
+```
+### Data Analysis
+While the data set could be used to explore various questions, the core question examined here is how cost relates to quality, as measured by either the number_score or the calculated mean sentiment analysis.
+
+The graphs below explore:
+
+1. How do the number score and sentiment score correlate?
+2. Including high cost outliers (>$500), how does cost correlate with the number score for each whiskey?
+3. Including high cost outliers (>$500), how does cost correlate with the sentiment score for each whiskey?
+4. Without high cost outliers (>$500), how does cost correlate with the number score for each whiskey?
+5. Without high cost outliers (>$500), how does cost correlate with the sentiment score for each whiskey?
+6. Without high cost outliers (>$500), how does cost correlate with the number score for different types of whiskey?
+7. Without high cost outliers (>$500), how does cost correlate with the sentiment score for different types of whiskey?
+8. Using the number score, which type of whiskey offers the best value?
+9. Using the sentiment score, which type of whiskey offers the best value?
+
+
+```{r echo = TRUE, results= 'asis', warning=FALSE, message=FALSE}
+
+# 1.How do the number score and sentiment score correlate?
+completed_whiskey_df |>
+  ggplot(aes(x = number_score, y = mean_sentiment_score, na.rm = TRUE))+
+  geom_point()+
+  geom_smooth(method='lm', se = FALSE, formula = y ~ x)+
+  labs(title = "Correlation between sentiment score and number_score") +
+  stat_regline_equation(label.x=-1, label.y=13)+
+  stat_cor(aes(label=after_stat(rr.label)), label.x=-1, label.y=12)
+
+# 2. Including high cost outliers (>$500), how does cost correlate with the number score for each whiskey?
+
+completed_whiskey_df |>
+  ggplot(aes(x = Cost, y = number_score, na.rm = TRUE))+
+  geom_point()+
+  geom_smooth(method='lm', se = FALSE, formula = y ~ x)+
+  labs(title = "Correlation between cost and number_score (all data)") +
+  stat_regline_equation(label.x=1500, label.y=13)+
+  stat_cor(aes(label=after_stat(rr.label)), label.x=1500, label.y=12)
+
+# 3. Including high cost outliers (>$500), how does cost correlate with the sentiment score for each whiskey?
+completed_whiskey_df |>
+  ggplot(aes(x = Cost, y = mean_sentiment_score, na.rm = TRUE))+
+  geom_point()+
+  geom_smooth(method='lm', se = FALSE, formula = y ~ x)+
+  labs(title = "Correlation between cost and sentiment (all data)") +
+  stat_regline_equation(label.x=1500, label.y=13)+
+  stat_cor(aes(label=after_stat(rr.label)), label.x=1500, label.y=12)
+
+#4. Without high cost outliers (>$500), how does cost correlate with the number score for each whiskey?
+completed_whiskey_df |>
+  filter(Cost<500)|>
+  ggplot(aes(x = Cost, y = number_score, na.rm = TRUE))+
+  geom_point()+
+  geom_smooth(method='lm', se = FALSE, formula = y ~ x)+
+  labs(title = "Correlation between cost and number_score (Cost < $500)") +
+  stat_regline_equation(label.x=200, label.y=13)+
+  stat_cor(aes(label=after_stat(rr.label)), label.x=200, label.y=12)
+
+# 5. Without high cost outliers (>$500), how does cost correlate with the sentiment score for each whiskey?
+completed_whiskey_df |>
+  filter(Cost<500)|>
+  ggplot(aes(x = Cost, y = mean_sentiment_score, na.rm = TRUE))+
+  geom_point()+
+  geom_smooth(method='lm', se = FALSE, formula = y ~ x)+
+  labs(title = "Correlation between cost and sentiment (Cost < $500)") +
+  stat_regline_equation(label.x=200, label.y=13)+
+  stat_cor(aes(label=after_stat(rr.label)), label.x=200, label.y=12)
+
+#6. Without high cost outliers (>$500), how does cost correlate with the number score for different types of whiskey?
+completed_whiskey_df |>
+  filter(Cost<500)|>
+  group_by(subtype)|>
+  ggplot(aes(x = Cost, y = number_score, na.rm = TRUE))+
+  geom_point()+
+  geom_smooth(method='lm', se = FALSE, formula = y ~ x)+
+  labs(title = "Correlation between cost and number_score by whiskey type") +
+  stat_regline_equation(label.x=100, label.y=12)+
+  stat_cor(aes(label=after_stat(rr.label)), label.x=100, label.y=10)+
+  facet_wrap(~ subtype)
+
+#7. Without high cost outliers (>$500), how does cost correlate with the sentiment score for different types of whiskey?
+completed_whiskey_df |>
+  filter(Cost<500)|>
+  group_by(subtype)|>
+  ggplot(aes(x = Cost, y = mean_sentiment_score, na.rm = TRUE))+
+  geom_point()+
+  geom_smooth(method='lm', se = FALSE, formula = y ~ x)+
+  labs(title = "Correlation between cost and sentiment by whiskey type") +
+  stat_regline_equation(label.x=100, label.y=12)+
+  stat_cor(aes(label=after_stat(rr.label)), label.x=100, label.y=10)+
+  facet_wrap(~ subtype)
+
+# 8.Using the number score, which type of whiskey offers the best value?
+completed_whiskey_df |>
+  group_by(subtype)|>
+  summarize(quality_value_number_score = mean(number_score/Cost, na.rm =TRUE))|>
+  ggplot(aes(x = subtype, y = quality_value_number_score, fill = subtype))+
+  geom_col()+
+  labs(title = "Whiskey Value: Units of number_score per dollar cost")
+
+# 9. Using the sentiment score, which type of whiskey offers the best value?
+completed_whiskey_df |>
+  group_by(subtype)|>
+  summarize(quality_value_sentiment = mean(mean_sentiment_score/Cost, na.rm =TRUE))|>
+  ggplot(aes(x = subtype, y = quality_value_sentiment, fill = subtype))+
+  geom_col()+
+  labs(title = "Whiskey Value: Units of sentiment score per dollar cost")
+
+```
+
+### Conclusions
+Surprisingly, the number_score and sentiment score for each whiskey correlate only weakly; the other graphs indicate the sentiment score is less correlative with cost than number_score in general, so perhaps sentiment scores for whiskey ratings are a less informative metric.
+
+In general, cost correlates only weakly with quality, whether measured by the number_score derived from the reviewers or the sentiment scores derived from the reviewer comments. To reiterate, the number_score generally correlates more with cost than sentiment scores. There are greater correlations between cost and quality when looking at subtypes of whiskey. For example, cost correlates more positively with quality for bourbon and blended whiskeys than single malts, although the correlation is still not very strong.
+
+In terms of value, it seems bourbon, blends, and rye whiskeys offer the best value when looking at units of number_score per dollar cost. Bourbons perform less well when using sentiment scores to examine value, but again, the data here shows sentiment scores are not an ideal metric.
+
+In summary, it would not seem financially justified to spend excessive amounts of money for that top shelf whiskey as generally cost does not correlate strongly with quality. 
